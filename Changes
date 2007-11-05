@@ -1,0 +1,7 @@
+Revision history for Perlite Apache extension.
+
+0.01  Sun Oct 28 10:28:14 2007
+	- original version; created by h2xs 1.23 and apxs 2.2
+	- mixed together Perl code from 'man perlembed' and
+	  skeletal Apache module code from 'apxs -g'
+

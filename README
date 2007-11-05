@@ -1,0 +1,41 @@
+mod_perlite version 0.01
+========================
+
+mod_perlite is a lightweight Perl module for Apache 2.x that is
+easy to install, easy to use, and compatible with CGI scripts.
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make install
+
+Then add the following directives to your Apache httpd.conf:
+
+   LoadModule perlite_module    modules/mod_perlite.so
+   AddType application/x-httpd-perlite .pl
+   AddDirectoryIndex index.pl
+
+The included mod_perlite.conf wraps these directives and may be
+included into your httpd.conf.
+
+DEPENDENCIES
+
+This module requires these other modules and libraries:
+
+  Apache >= 2.x
+  Perl >= 5.8
+
+You might have luck compiling this module with Perl 5.6, and you might
+have luck installing this module into Apache 1.3. Good for you!
+
+COPYRIGHT AND LICENCE
+
+Copyright (C) 2007 by Aaron Stone, Six Apart Ltd.
+
+This program is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.8.8 or,
+at your option, any later version of Perl 5 you may have available.
+
