@@ -70,29 +70,17 @@ static int perlite_handler(request_rec *r)
 
 static void perlite_register_hooks(apr_pool_t *p)
 {
-//      ap_hook_pre_config(php_pre_config, NULL, NULL, APR_HOOK_MIDDLE);
-//      ap_hook_post_config(php_apache_server_startup, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_handler(perlite_handler, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
 static apr_status_t destroy_perlite_config(void *data)
 {
-//        php_conf_rec *d = data;
-//
-//        phpapdebug((stderr, "Destroying config %p\n", data));
-//        zend_hash_destroy(&d->config);
-
-        return APR_SUCCESS;
+    return APR_SUCCESS;
 }
 
 void *create_perlite_config(apr_pool_t *p, char *dummy)
 {
-//        php_conf_rec *newx = (php_conf_rec *) apr_pcalloc(p, sizeof(*newx));
-//
-//        phpapdebug((stderr, "Creating new config (%p) for %s\n", newx, dummy));
-//        zend_hash_init(&newx->config, 0, NULL, NULL, 1);
-//        apr_pool_cleanup_register(p, newx, destroy_php_config, apr_pool_cleanup_null);
-        return NULL;
+    return NULL;
 }
 
 void *merge_perlite_config(apr_pool_t *p, void *base_conf, void *new_conf)
@@ -100,15 +88,13 @@ void *merge_perlite_config(apr_pool_t *p, void *base_conf, void *new_conf)
     return NULL;
 }
 
-
-/* Dispatch list for API hooks */
 module AP_MODULE_DECLARE_DATA perlite_module = {
     STANDARD20_MODULE_STUFF, 
-    create_perlite_config, /* create per-dir    config structures */
-    merge_perlite_config,  /* merge  per-dir    config structures */
-    NULL,                  /* create per-server config structures */
-    NULL,                  /* merge  per-server config structures */
-    NULL, // perlite_dir_cmds,      /* table of config file commands       */
-    perlite_register_hooks  /* register hooks                      */
+    create_perlite_config,      /* create per-dir    config structures */
+    merge_perlite_config,       /* merge  per-dir    config structures */
+    NULL,                       /* create per-server config structures */
+    NULL,                       /* merge  per-server config structures */
+    NULL,                       /* table of config file commands       */
+    perlite_register_hooks      /* register hooks                      */
 };
 

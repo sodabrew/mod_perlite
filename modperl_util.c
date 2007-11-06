@@ -16,48 +16,48 @@
 
 #include "includes.h"
 
-int modperl_require_module(pTHX_ const char *pv, int logfailure)
-{
-    SV *sv;
-
-    dSP;
-    PUSHSTACKi(PERLSI_REQUIRE);
-    ENTER;SAVETMPS;
-    PUTBACK;
-    sv = sv_newmortal();
-    sv_setpv(sv, "require ");
-    sv_catpv(sv, pv);
-    eval_sv(sv, G_DISCARD);
-    SPAGAIN;
-    POPSTACK;
-    FREETMPS;LEAVE;
-
-    if (SvTRUE(ERRSV)) {
-        if (logfailure) {
-            (void)modperl_errsv(aTHX_ HTTP_INTERNAL_SERVER_ERROR,
-                                NULL, NULL);
-        }
-        return FALSE;
-    }
-
-    return TRUE;
-}
-
-int modperl_require_file(pTHX_ const char *pv, int logfailure)
-{
-    require_pv(pv);
-
-    if (SvTRUE(ERRSV)) {
-        if (logfailure) {
-            (void)modperl_errsv(aTHX_ HTTP_INTERNAL_SERVER_ERROR,
-                                NULL, NULL);
-        }
-        return FALSE;
-    }
-
-    return TRUE;
-}
-
+///int modperl_require_module(pTHX_ const char *pv, int logfailure)
+///{
+///    SV *sv;
+///
+///    dSP;
+///    PUSHSTACKi(PERLSI_REQUIRE);
+///    ENTER;SAVETMPS;
+///    PUTBACK;
+///    sv = sv_newmortal();
+///    sv_setpv(sv, "require ");
+///    sv_catpv(sv, pv);
+///    eval_sv(sv, G_DISCARD);
+///    SPAGAIN;
+///    POPSTACK;
+///    FREETMPS;LEAVE;
+///
+///    if (SvTRUE(ERRSV)) {
+///        if (logfailure) {
+///            (void)modperl_errsv(aTHX_ HTTP_INTERNAL_SERVER_ERROR,
+///                                NULL, NULL);
+///        }
+///        return FALSE;
+///    }
+///
+///    return TRUE;
+///}
+///
+///int modperl_require_file(pTHX_ const char *pv, int logfailure)
+///{
+///    require_pv(pv);
+///
+///    if (SvTRUE(ERRSV)) {
+///        if (logfailure) {
+///            (void)modperl_errsv(aTHX_ HTTP_INTERNAL_SERVER_ERROR,
+///                                NULL, NULL);
+///        }
+///        return FALSE;
+///    }
+///
+///    return TRUE;
+///}
+///
 static SV *modperl_hv_request_find(pTHX_ SV *in, char *classname, CV *cv)
 {
     static char *r_keys[] = { "r", "_r", NULL };
@@ -96,25 +96,25 @@ static SV *modperl_hv_request_find(pTHX_ SV *in, char *classname, CV *cv)
  * be not thread-safe under threaded mpms, so use with care
  */
 
-MP_INLINE server_rec *modperl_sv2server_rec(pTHX_ SV *sv)
-{
-    if (SvOBJECT(sv) || (SvROK(sv) && (SvTYPE(SvRV(sv)) == SVt_PVMG))) {
-        return INT2PTR(server_rec *, SvObjIV(sv));
-    }
-
-    /* next see if we have Apache2->request available */
-    {
-        request_rec *r = NULL;
-        (void)modperl_tls_get_request_rec(&r);
-        if (r) {
-            return r->server;
-        }
-    }
-
-    /* modperl_global_get_server_rec is not thread safe w/o locking */
-    return modperl_global_get_server_rec();
-}
-
+///MP_INLINE server_rec *modperl_sv2server_rec(pTHX_ SV *sv)
+///{
+///    if (SvOBJECT(sv) || (SvROK(sv) && (SvTYPE(SvRV(sv)) == SVt_PVMG))) {
+///        return INT2PTR(server_rec *, SvObjIV(sv));
+///    }
+///
+///    /* next see if we have Apache2->request available */
+///    {
+///        request_rec *r = NULL;
+///        (void)modperl_tls_get_request_rec(&r);
+///        if (r) {
+///            return r->server;
+///        }
+///    }
+///
+///    /* modperl_global_get_server_rec is not thread safe w/o locking */
+///    return modperl_global_get_server_rec();
+///}
+///
 MP_INLINE request_rec *modperl_sv2request_rec(pTHX_ SV *sv)
 {
     return modperl_xs_sv2request_rec(aTHX_ sv, NULL, Nullcv);
@@ -194,58 +194,58 @@ MP_INLINE SV *modperl_ptr2obj(pTHX_ char *classname, void *ptr)
 {
     SV *sv = newSV(0);
 
-    MP_TRACE_h(MP_FUNC, "sv_setref_pv(%s, 0x%lx)\n",
-               classname, (unsigned long)ptr);
+///    MP_TRACE_h(MP_FUNC, "sv_setref_pv(%s, 0x%lx)\n",
+///               classname, (unsigned long)ptr);
     sv_setref_pv(sv, classname, ptr);
 
     return sv;
 }
 
-int modperl_errsv(pTHX_ int status, request_rec *r, server_rec *s)
-{
-    SV *sv = ERRSV;
-    STRLEN n_a;
-
-    if (SvTRUE(sv)) {
-        if (sv_derived_from(sv, "APR::Error") &&
-            SvIVx(sv) == MODPERL_RC_EXIT) {
-            /* ModPerl::Util::exit was called */
-            return OK;
-        }
-#if 0
-        if (modperl_sv_is_http_code(ERRSV, &status)) {
-            return status;
-        }
-#endif
-        if (r) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "%s", SvPV(sv, n_a));
-        }
-        else {
-            ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, "%s", SvPV(sv, n_a));
-        }
-
-        return status;
-    }
-
-    return status;
-}
-
-/* prepends the passed sprintf-like arguments to ERRSV, which also
- * gets stringified on the way */
-void modperl_errsv_prepend(pTHX_ const char *pat, ...)
-{
-    SV *sv;
-    va_list args;
-
-    va_start(args, pat);
-    sv = vnewSVpvf(pat, &args);
-    va_end(args);
-
-    sv_catsv(sv, ERRSV);
-    sv_copypv(ERRSV, sv);
-    sv_free(sv);
-}
-
+///int modperl_errsv(pTHX_ int status, request_rec *r, server_rec *s)
+///{
+///    SV *sv = ERRSV;
+///    STRLEN n_a;
+///
+///    if (SvTRUE(sv)) {
+///        if (sv_derived_from(sv, "APR::Error") &&
+///            SvIVx(sv) == MODPERL_RC_EXIT) {
+///            /* ModPerl::Util::exit was called */
+///            return OK;
+///        }
+///#if 0
+///        if (modperl_sv_is_http_code(ERRSV, &status)) {
+///            return status;
+///        }
+///#endif
+///        if (r) {
+///            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "%s", SvPV(sv, n_a));
+///        }
+///        else {
+///            ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, "%s", SvPV(sv, n_a));
+///        }
+///
+///        return status;
+///    }
+///
+///    return status;
+///}
+///
+////* prepends the passed sprintf-like arguments to ERRSV, which also
+/// * gets stringified on the way */
+///void modperl_errsv_prepend(pTHX_ const char *pat, ...)
+///{
+///    SV *sv;
+///    va_list args;
+///
+///    va_start(args, pat);
+///    sv = vnewSVpvf(pat, &args);
+///    va_end(args);
+///
+///    sv_catsv(sv, ERRSV);
+///    sv_copypv(ERRSV, sv);
+///    sv_free(sv);
+///}
+///
 #define dl_librefs "DynaLoader::dl_librefs"
 #define dl_modules "DynaLoader::dl_modules"
 
@@ -493,74 +493,74 @@ void modperl_perl_call_list(pTHX_ AV *subs, const char *name)
     }
 }
 
-void modperl_perl_exit(pTHX_ int status)
-{
-    ENTER;
-    SAVESPTR(PL_diehook);
-    PL_diehook = Nullsv; 
-    modperl_croak(aTHX_ MODPERL_RC_EXIT, "ModPerl::Util::exit");
-}
-
-MP_INLINE SV *modperl_dir_config(pTHX_ request_rec *r, server_rec *s,
-                                 char *key, SV *sv_val)
-{
-    SV *retval = &PL_sv_undef;
-
-    if (r && r->per_dir_config) {				   
-        MP_dDCFG;
-        retval = modperl_table_get_set(aTHX_ dcfg->configvars,
-                                       key, sv_val, FALSE);
-    }
-
-    if (!SvOK(retval)) {
-        if (s && s->module_config) {
-            MP_dSCFG(s);
-            SvREFCNT_dec(retval); /* in case above did newSV(0) */
-            retval = modperl_table_get_set(aTHX_ scfg->configvars,
-                                           key, sv_val, FALSE);
-        }
-        else {
-            retval = &PL_sv_undef;
-        }
-    }
-
-    return retval;
-}
-
-SV *modperl_table_get_set(pTHX_ apr_table_t *table, char *key,
-                          SV *sv_val, int do_taint)
-{
-    SV *retval = &PL_sv_undef;
-
-    if (table == NULL) { 
-        /* do nothing */
-    }
-    else if (key == NULL) { 
-        retval = modperl_hash_tie(aTHX_ "APR::Table",
-                                  Nullsv, (void*)table); 
-    }
-    else if (!sv_val) { /* no val was passed */
-        char *val; 
-        if ((val = (char *)apr_table_get(table, key))) { 
-            retval = newSVpv(val, 0); 
-        } 
-        else { 
-            retval = newSV(0); 
-        } 
-        if (do_taint) { 
-            SvTAINTED_on(retval); 
-        } 
-    }
-    else if (!SvOK(sv_val)) { /* val was passed in as undef */
-        apr_table_unset(table, key); 
-    }
-    else { 
-        apr_table_set(table, key, SvPV_nolen(sv_val));
-    } 
-
-    return retval;
-}
-
+///void modperl_perl_exit(pTHX_ int status)
+///{
+///    ENTER;
+///    SAVESPTR(PL_diehook);
+///    PL_diehook = Nullsv; 
+///    modperl_croak(aTHX_ MODPERL_RC_EXIT, "ModPerl::Util::exit");
+///}
+///
+///MP_INLINE SV *modperl_dir_config(pTHX_ request_rec *r, server_rec *s,
+///                                 char *key, SV *sv_val)
+///{
+///    SV *retval = &PL_sv_undef;
+///
+///    if (r && r->per_dir_config) {				   
+///        MP_dDCFG;
+///        retval = modperl_table_get_set(aTHX_ dcfg->configvars,
+///                                       key, sv_val, FALSE);
+///    }
+///
+///    if (!SvOK(retval)) {
+///        if (s && s->module_config) {
+///            MP_dSCFG(s);
+///            SvREFCNT_dec(retval); /* in case above did newSV(0) */
+///            retval = modperl_table_get_set(aTHX_ scfg->configvars,
+///                                           key, sv_val, FALSE);
+///        }
+///        else {
+///            retval = &PL_sv_undef;
+///        }
+///    }
+///
+///    return retval;
+///}
+///
+///SV *modperl_table_get_set(pTHX_ apr_table_t *table, char *key,
+///                          SV *sv_val, int do_taint)
+///{
+///    SV *retval = &PL_sv_undef;
+///
+///    if (table == NULL) { 
+///        /* do nothing */
+///    }
+///    else if (key == NULL) { 
+///        retval = modperl_hash_tie(aTHX_ "APR::Table",
+///                                  Nullsv, (void*)table); 
+///    }
+///    else if (!sv_val) { /* no val was passed */
+///        char *val; 
+///        if ((val = (char *)apr_table_get(table, key))) { 
+///            retval = newSVpv(val, 0); 
+///        } 
+///        else { 
+///            retval = newSV(0); 
+///        } 
+///        if (do_taint) { 
+///            SvTAINTED_on(retval); 
+///        } 
+///    }
+///    else if (!SvOK(sv_val)) { /* val was passed in as undef */
+///        apr_table_unset(table, key); 
+///    }
+///    else { 
+///        apr_table_set(table, key, SvPV_nolen(sv_val));
+///    } 
+///
+///    return retval;
+///}
+///
 static char *package2filename(const char *package, int *len)
 {
     const char *s;
@@ -717,30 +717,30 @@ SV *modperl_apr_array_header2avrv(pTHX_ apr_array_header_t *array)
     return newRV_noinc((SV*)av);
 }
 
-apr_array_header_t *modperl_avrv2apr_array_header(pTHX_ apr_pool_t *p,
-                                                  SV *avrv)
-{
-    AV *av;
-    apr_array_header_t *array;
-    int i, av_size;
-
-    if (!(SvROK(avrv) && (SvTYPE(SvRV(avrv)) == SVt_PVAV))) {
-        Perl_croak(aTHX_ "Not an array reference");
-    }
-
-    av = (AV*)SvRV(avrv);
-    av_size = av_len(av);
-    array = apr_array_make(p, av_size+1, sizeof(char *));
-
-    for (i = 0; i <= av_size; i++) {
-        SV *sv = *av_fetch(av, i, FALSE);
-        char **entry = (char **)apr_array_push(array);
-        *entry = apr_pstrdup(p, SvPV(sv, PL_na));
-    }
-
-    return array;
-}
-
+///apr_array_header_t *modperl_avrv2apr_array_header(pTHX_ apr_pool_t *p,
+///                                                  SV *avrv)
+///{
+///    AV *av;
+///    apr_array_header_t *array;
+///    int i, av_size;
+///
+///    if (!(SvROK(avrv) && (SvTYPE(SvRV(avrv)) == SVt_PVAV))) {
+///        Perl_croak(aTHX_ "Not an array reference");
+///    }
+///
+///    av = (AV*)SvRV(avrv);
+///    av_size = av_len(av);
+///    array = apr_array_make(p, av_size+1, sizeof(char *));
+///
+///    for (i = 0; i <= av_size; i++) {
+///        SV *sv = *av_fetch(av, i, FALSE);
+///        char **entry = (char **)apr_array_push(array);
+///        *entry = apr_pstrdup(p, SvPV(sv, PL_na));
+///    }
+///
+///    return array;
+///}
+///
 /* Remove a package from %INC */
 static void modperl_package_delete_from_inc(pTHX_ const char *package)  
 {
@@ -822,14 +822,14 @@ void modperl_restart_count_inc(server_rec *base_server)
     }    
 }
 
-int modperl_restart_count(void)
-{
-    void *data;
-    apr_pool_userdata_get(&data, MP_RESTART_COUNT_KEY,
-                          modperl_global_get_server_rec()->process->pool);
-    return data ? *(int *)data : 0;
- }
-
+///int modperl_restart_count(void)
+///{
+///    void *data;
+///    apr_pool_userdata_get(&data, MP_RESTART_COUNT_KEY,
+///                          modperl_global_get_server_rec()->process->pool);
+///    return data ? *(int *)data : 0;
+/// }
+///
 #ifdef USE_ITHREADS
 typedef struct {
     HV **pnotes;
