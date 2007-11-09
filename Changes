@@ -1,5 +1,10 @@
 Revision history for Perlite Apache extension.
 
+0.03  Thu Nov 08 23:44:45 2007
+	- figured out how PerlIO::via works.
+	- realized I didn't need any code from mod_perl.
+	- started to return a CGI-compatible %ENV.
+
 0.02  Mon Nov 05 23:58:14 2007
 	- grabbed lots more core from modperl.
 	- got the darned thing to build.
