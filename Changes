@@ -1,5 +1,9 @@
 Revision history for Perlite Apache extension.
 
+0.04  Fri Nov 09 09:18:01 2007
+	- make use of core Apache functions to set up the CGI
+	  environment without any further pain.
+
 0.03  Thu Nov 08 23:44:45 2007
 	- figured out how PerlIO::via works.
 	- realized I didn't need any code from mod_perl.
