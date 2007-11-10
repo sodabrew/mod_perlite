@@ -22,19 +22,18 @@ xs_init(pTHX)
 
 __thread request_rec *thread_r;
 
-#define ENV(key, val) \
-        hv_store((HV *)hv, key, strlen(key), newSVpv(val, 0), 0);
-
 static int perlite_copy_env(void *hv, const char *key, const char *val)
 {
-    ENV(key, val);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, thread_r, "Setting $ENV{%s} = %s", key, val);
+    hv_store((HV *)hv, key, strlen(key), newSVpv(val, 0), 0);
+    return TRUE;
 }
 
 XS(XS_Perlite_get_env);
 XS(XS_Perlite_get_env)
 {
     dXSARGS;
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, thread_r, "Getting \%ENV");
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, thread_r, "Preparing %%ENV");
     if (items != 0)
         Perl_croak(aTHX_ "Usage: Perlite::perlite_get_env()");
     {
@@ -44,12 +43,15 @@ XS(XS_Perlite_get_env)
         ap_add_common_vars(thread_r);
         ap_add_cgi_vars(thread_r);
 
-        apr_table_do(perlite_copy_env, hv, thread_r->subprocess_env);
+        apr_table_do(perlite_copy_env, hv, thread_r->subprocess_env, NULL);
+
+        hv_store(hv, "MOD_PERLITE", sizeof("MOD_PERLITE")-1, newSVpv("Hello World", 0), 0);
 
         RETVAL = hv;
         ST(0) = newRV((SV*)RETVAL);
         sv_2mortal(ST(0));
     }
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, thread_r, "Returning %%ENV");
     XSRETURN(1);
 }
 
@@ -57,7 +59,7 @@ XS(XS_PerliteIO_perlite_io_write);
 XS(XS_PerliteIO_perlite_io_write)
 {
     dXSARGS;
-//    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, thread_r, "In %s: %d", __func__, __LINE__);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, thread_r, "In %s: %d", __func__, __LINE__);
     if (items != 1)
         Perl_croak(aTHX_ "Usage: PerliteIO::perlite_io_write(buf)");
     {
@@ -115,7 +117,7 @@ static int perlite_handler(request_rec *r)
 //    newXSproto("Perlite::perlite_die", XS_Perlite_die, __FILE__, "$");
 
     // FIXME: how to get errors from here?
-    eval_pv("use lib '/home/aaron/codingprojects/mod_perlite';", TRUE);
+//    eval_pv("use lib '/home/aaron/codingprojects/mod_perlite';", TRUE);
     eval_pv("use Perlite;", TRUE);
 
     run_file[0] = r->filename;
