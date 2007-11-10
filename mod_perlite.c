@@ -64,10 +64,8 @@ XS(XS_PerliteIO_perlite_io_write)
         Perl_croak(aTHX_ "Usage: PerliteIO::perlite_io_write(buf)");
     {
         STRLEN        len;
-        int              RETVAL;
+        int           RETVAL;
         char        * buf = (char *)SvPV(ST(0), len);
-//        IV            riv = ST(1);
-//        request_rec * r   = INT2PTR(request_rec *, riv);
         dXSTARG;
         RETVAL = ap_rwrite(buf, len, thread_r);
         XSprePUSH; PUSHi((IV)RETVAL);
@@ -86,13 +84,13 @@ static int perlite_handler(request_rec *r)
     char *run_file[] = { "", NULL };
     char **env = NULL;
 
-    // Make the request available as a thread-local global.
-    thread_r = r;
-
     // Only handle our own files
     if (strcmp(r->handler, PERLITE_MAGIC_TYPE)) {
         return DECLINED;
     }
+
+    // Make the request available as a thread-local global.
+    thread_r = r;
 
     // FIXME: find this header from the script.
     r->content_type = "text/html";      
