@@ -10,8 +10,8 @@ open(my $out, '>:via(Perlite::IO)', 'mod_perlite_stdout' );
 *STDOUT = $out;
 
 # Hopefully these will help to catch and pretty-print errors
-$SIG{__DIE__} = sub { print "<br><b>Died: <pre>$!</pre>" };
-$SIG{__WARN__} = sub { print "<br><b>Warned</b>: <pre>$!</pre>" };
+$SIG{__DIE__} = sub { print "<br><b>Dying</b>: <pre>" . join("\n", @_) . "</pre>" };
+$SIG{__WARN__} = sub { print "<br><b>Warning</b>: <pre>" . join("\n", @_) . "</pre>" };
 
 # Replace the actual %ENV with a CGI-compatible Apache %ENV
 my $_ENV = Perlite::perlite_get_env;
@@ -30,9 +30,7 @@ sub FILL { undef }
 sub WRITE {
     my ($class, $buffer, $handle) = @_;
 
-    perlite_io_write($buffer);
-
-    return 6;
+    return perlite_io_write($buffer);
 }
 
 1;
