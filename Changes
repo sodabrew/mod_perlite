@@ -1,5 +1,9 @@
 Revision history for Perlite Apache extension.
 
+0.05  Fri Nov 09 17:23:45 2007
+	- corrected arguments to __DIE__ and __WARN__.
+	- added missing NULL at the end of apr_table_do.
+
 0.04  Fri Nov 09 09:18:01 2007
 	- make use of core Apache functions to set up the CGI
 	  environment without any further pain.
