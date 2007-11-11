@@ -2,6 +2,9 @@ Revision history for Perlite Apache extension.
 
 0.06  Sat Nov 10 22:38:14 2007
         - converted to Module::Build.
+	- look for Content-Type headers.
+	- use a macro to make logging prettier.
+	- use SvPV_nolen since we weren't using lengths.
 
 0.05  Fri Nov 09 17:23:45 2007
 	- corrected arguments to __DIE__ and __WARN__.

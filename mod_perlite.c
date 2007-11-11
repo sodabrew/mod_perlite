@@ -1,6 +1,8 @@
 
 #include "mod_perlite.h"
 
+#define LOG(level, foo...) ap_log_rerror(APLOG_MARK, APLOG_ ## level, 0, thread_r, foo);
+
 // DynaLoader from perl -MExtUtils::Embed -e xsinit -- -o -
 
 EXTERN_C void xs_init (pTHX);
@@ -23,7 +25,7 @@ __thread request_rec *thread_r;
 
 static int perlite_copy_env(void *hv, const char *key, const char *val)
 {
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, thread_r, "Setting $ENV{%s} = %s", key, val);
+    LOG(DEBUG, "Setting $ENV{%s} = %s", key, val);
     hv_store((HV *)hv, key, strlen(key), newSVpv(val, 0), 0);
     return TRUE;
 }
@@ -32,7 +34,7 @@ XS(XS_Perlite__env);
 XS(XS_Perlite__env)
 {
     dXSARGS;
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, thread_r, "Preparing %%ENV");
+    LOG(DEBUG, "Preparing %%ENV");
     if (items != 0)
         Perl_croak(aTHX_ "Usage: Perlite::_env()");
     {
@@ -50,7 +52,7 @@ XS(XS_Perlite__env)
         ST(0) = newRV((SV*)RETVAL);
         sv_2mortal(ST(0));
     }
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, thread_r, "Returning %%ENV");
+    LOG(DEBUG, "Returning %%ENV");
     XSRETURN(1);
 }
 
@@ -61,9 +63,8 @@ XS(XS_Perlite__log)
     if (items != 2)
         Perl_croak(aTHX_ "Usage: Perlite::_log(level, message)");
     {
-        STRLEN        len;
-        int         level = (int)SvIV(ST(0));
-        char        * msg = (char *)SvPV(ST(1), len);
+        int         level = (   int)SvIV(ST(0));
+        char        * msg = (char *)SvPV_nolen(ST(1));
         dXSTARG;
 
         switch (level) {
@@ -85,16 +86,25 @@ XS(XS_PerliteIO__header);
 XS(XS_PerliteIO__header)
 {
     dXSARGS;
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, thread_r, "In %s: %d", __func__, __LINE__);
+    LOG(DEBUG, "In %s: %d", __func__, __LINE__);
     if (items != 2)
         Perl_croak(aTHX_ "Usage: PerliteIO::_header(key, value)");
     {
-        STRLEN        klen, vlen;
-        char        * key = (char *)SvPV(ST(0), klen);
-        char        * val = (char *)SvPV(ST(1), vlen);
+        char        * key = (char *)SvPV_nolen(ST(0));
+        char        * val = (char *)SvPV_nolen(ST(1));
         dXSTARG;
-	// FIXME: Oh, I guess we don't need the lengths after all?
+
         apr_table_add(thread_r->headers_out, key, val);
+
+	if (strcasecmp(key, "Content-Type") == 0) {
+	    LOG(INFO, "Setting Content-Type: %s", val);
+            ap_set_content_type(thread_r, apr_pstrdup(thread_r->pool, val));
+	} else if (strcasecmp(key, "Location") == 0) {
+            // TODO: set location (r, val);
+	} else if (strcasecmp(key, "Status") == 0) {
+            // TODO: set status (r, val);
+	}
+
         XSprePUSH; PUSHi((IV)1);
     }
     XSRETURN(1);
@@ -104,7 +114,7 @@ XS(XS_PerliteIO__write);
 XS(XS_PerliteIO__write)
 {
     dXSARGS;
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, thread_r, "In %s: %d", __func__, __LINE__);
+    LOG(DEBUG, "In %s: %d", __func__, __LINE__);
     if (items != 1)
         Perl_croak(aTHX_ "Usage: PerliteIO::_write(buf)");
     {
@@ -137,9 +147,6 @@ static int perlite_handler(request_rec *r)
     // Make the request available as a thread-local global.
     thread_r = r;
 
-    // FIXME: find this header from the script.
-    r->content_type = "text/html";      
-
     if (r->header_only) {
         // We have no further headers to add at this time.
         return OK;
@@ -161,16 +168,14 @@ static int perlite_handler(request_rec *r)
 
     eval_pv("use Perlite;", G_EVAL|G_SCALAR|G_KEEPERR);
     if (SvTRUE(ERRSV)) {
-	STRLEN n_a;
-        ap_rprintf(thread_r, "Died: %s\n", SvPV(ERRSV, n_a));
+        ap_rprintf(thread_r, "Died: %s\n", SvPV_nolen(ERRSV));
         goto handler_done;
     }
 
     run_file[0] = r->filename;
     res = call_argv("Perlite::run_file", G_EVAL|G_SCALAR|G_KEEPERR, run_file);
     if (SvTRUE(ERRSV)) {
-	STRLEN n_a;
-        ap_rprintf(thread_r, "Died: %s\n", SvPV(ERRSV, n_a));
+        ap_rprintf(thread_r, "Died: %s\n", SvPV_nolen(ERRSV));
     }
 
 handler_done:

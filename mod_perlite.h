@@ -12,6 +12,7 @@
 
 #include "apr_portable.h"
 #include "apr_file_io.h"
+#include "apr_strings.h"
 #include "apr_errno.h"
 #include "apr_lib.h"
 
