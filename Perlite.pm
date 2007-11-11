@@ -41,8 +41,8 @@ sub WRITE {
     # The next time someone prints something, it's in body space
     $body = 1 if $cr or $cn;
 
-    my ($header, $bodytext) = split /\r\n\r\n/, $buffer if $cr;
-       ($header, $bodytext) = split /\n\n/, $buffer if $cn;
+    my ($header, $bodytext) = split /\r\n\r\n/, $buffer, 2 if $cr;
+       ($header, $bodytext) = split /\n\n/, $buffer, 2 if $cn;
 
     # This is probably the usual case: someone prints a single header lines
     $header = $buffer unless $header;
@@ -52,14 +52,13 @@ sub WRITE {
 
     # Split each line into key and value pairs, then set the header
     foreach (@headerlines) {
-        my ($header, $value) = split /: /;
+        my ($header, $value) = split /: /, $_, 2;
         last unless $header and $value;
-        Perlite::_log(10, "Setting header [$header] value [$value]");
         _header($header, $value);
     }
 
     # If there was a long block of headers and body, this prints the body part
-    _write($body) if ($bodytext);
+    _write($bodytext) if ($bodytext);
 
     return length $buffer; # lie and say we printed everything
 }
