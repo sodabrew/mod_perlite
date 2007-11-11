@@ -1,7 +1,7 @@
 
 #include "mod_perlite.h"
 
-// BEGIN perl -MExtUtils::Embed -e xsinit -- -o -
+// DynaLoader from perl -MExtUtils::Embed -e xsinit -- -o -
 
 EXTERN_C void xs_init (pTHX);
 
@@ -16,9 +16,8 @@ xs_init(pTHX)
         /* DynaLoader is a special case */
         newXS("DynaLoader::boot_DynaLoader", boot_DynaLoader, file);
 }
-// END  perl -MExtUtils::Embed -e xsinit -- -o -
 
-// Redirect STDOUT to Apache
+// XS functions to expose some basic Apache hooks
 
 __thread request_rec *thread_r;
 
@@ -119,15 +118,6 @@ XS(XS_PerliteIO__write)
     XSRETURN(1);
 }
 
-/**
-PERL_CALLCONV void	Perl_croak(pTHX_ const char* pat, ...)
-{
-
-    ap_rputs(pat, thread_r);
-
-}
-**/
-
 // Meat of the module
 
 static int perlite_handler(request_rec *r)
@@ -168,8 +158,6 @@ static int perlite_handler(request_rec *r)
     newXSproto("Perlite::IO::_header", XS_PerliteIO__header, __FILE__, "$$");
     newXSproto("Perlite::_env", XS_Perlite__env, __FILE__, "");
     newXSproto("Perlite::_log", XS_Perlite__log, __FILE__, "$$");
-//    newXSproto("Perlite::perlite_warn", XS_Perlite_warn, __FILE__, "$");
-//    newXSproto("Perlite::perlite_die", XS_Perlite_die, __FILE__, "$");
 
     eval_pv("use Perlite;", G_EVAL|G_SCALAR|G_KEEPERR);
     if (SvTRUE(ERRSV)) {
@@ -194,6 +182,8 @@ handler_done:
     
     return OK;
 }
+
+// Setup functions
 
 static void perlite_register_hooks(apr_pool_t *p)
 {
