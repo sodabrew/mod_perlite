@@ -20,10 +20,10 @@ sub ACTION_code {
     my $CCFLAGS = '-fPIC -g -ggdb -DMP_SYS_DL_DLOPEN=1 ' . `pkg-config --cflags apr-1` . ccopts;
     my $VERSION = '-DVERSION=\"' . $self->dist_version . '\"';
     
-    my $build = "$CC $CCFLAGS $INC $VERSION -shared -c mod_perlite.c";
+    my $build = "$CC -c mod_perlite.c $CCFLAGS $INC $VERSION";
     $build =~ s/\n//g;
 
-    my $link = "$CC $LDFLAGS -shared mod_perlite.o -o mod_perlite.so";
+    my $link = "$CC -shared mod_perlite.o -o mod_perlite.so $CCFLAGS $LDFLAGS";
     $link =~ s/\n//g;
 
     print $build, "\n";
