@@ -1,8 +1,12 @@
-mod_perlite version 0.01
+mod_perlite version 0.05
 ========================
 
 mod_perlite is a lightweight Perl module for Apache 2.x that is
-easy to install, easy to use, and compatible with CGI scripts.
+easy to install, easy to use, and compatible with the CGI spec.
+
+Your script can find out if it is running under mod_perlite
+by checking $ENV{MOD_PERLITE}, which, if present, contains the
+version of mod_perlite installed.
 
 INSTALLATION
 

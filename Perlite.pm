@@ -13,12 +13,13 @@ open(my $out, '>:via(Perlite::IO)', 'mod_perlite_stdout' );
 $SIG{__DIE__} = sub { print "<br><b>Dying</b>: <pre>" . join("\n", @_) . "</pre>" };
 $SIG{__WARN__} = sub { print "<br><b>Warning</b>: <pre>" . join("\n", @_) . "</pre>" };
 
-# Replace the actual %ENV with a CGI-compatible Apache %ENV
-my $_ENV = Perlite::perlite_get_env;
-%ENV = %$_ENV;
+# Replace the actual %ENV with a CGI-compatible %ENV
+%ENV = %{ my $ENV = Perlite::_env };
 
 
 package Perlite::IO;
+
+# XS: _write, _header
 
 sub PUSHED { bless \*PUSHED, $_[0] }
 
@@ -26,17 +27,49 @@ sub OPEN { 1 }
 
 sub FILL { undef }
 
-# Return the number of bytes written
+my $body = 0;
+
 sub WRITE {
     my ($class, $buffer, $handle) = @_;
 
-    return perlite_io_write($buffer);
+    return _write($buffer) if $body; # print to body
+
+    # If there was a long block of headers and body, this finds the body part
+    my $cr = $buffer =~ tr/\r\n\r\n//;
+    my $cn = $buffer =~ tr/\n\n//;
+
+    # The next time someone prints something, it's in body space
+    $body = 1 if $cr or $cn;
+
+    my ($header, $bodytext) = split /\r\n\r\n/, $buffer if $cr;
+       ($header, $bodytext) = split /\n\n/, $buffer if $cn;
+
+    # This is probably the usual case: someone prints a single header lines
+    $header = $buffer unless $header;
+
+    # Handles the case of printing many header lines
+    my @headerlines = split /\n/, $header;
+
+    # Split each line into key and value pairs, then set the header
+    foreach (@headerlines) {
+        my ($header, $value) = split /: /;
+        last unless $header and $value;
+        Perlite::_log(10, "Setting header [$header] value [$value]");
+        _header($header, $value);
+    }
+
+    # If there was a long block of headers and body, this prints the body part
+    _write($body) if ($bodytext);
+
+    return length $buffer; # lie and say we printed everything
 }
 
 1;
 
 
 package Perlite;
+
+# XS: _log, _env
 
 sub run_file {
     my $file = shift;

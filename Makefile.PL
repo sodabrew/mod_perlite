@@ -4,7 +4,7 @@ use ExtUtils::Embed qw/ ccopts ldopts /;
 
 WriteMakefile(
     NAME            => 'mod_perlite',
-    VERSION         => '0.1',
+    VERSION         => '0.5',
     ABSTRACT        => 'Simple Perl handler for Apache',
     AUTHOR          => 'Aaron Stone  <astone@serendipity.cx>',
     C               => [ qw/ mod_perlite.c/ ],
