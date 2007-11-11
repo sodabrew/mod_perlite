@@ -171,12 +171,21 @@ static int perlite_handler(request_rec *r)
 //    newXSproto("Perlite::perlite_warn", XS_Perlite_warn, __FILE__, "$");
 //    newXSproto("Perlite::perlite_die", XS_Perlite_die, __FILE__, "$");
 
-    // FIXME: how to get errors from here?
-//    eval_pv("use lib '/home/aaron/codingprojects/mod_perlite';", TRUE);
-    eval_pv("use Perlite;", TRUE);
+    eval_pv("use Perlite;", G_EVAL|G_SCALAR|G_KEEPERR);
+    if (SvTRUE(ERRSV)) {
+	STRLEN n_a;
+        ap_rprintf(thread_r, "Died: %s\n", SvPV(ERRSV, n_a));
+        goto handler_done;
+    }
 
     run_file[0] = r->filename;
-    res = call_argv("Perlite::run_file", TRUE, run_file);
+    res = call_argv("Perlite::run_file", G_EVAL|G_SCALAR|G_KEEPERR, run_file);
+    if (SvTRUE(ERRSV)) {
+	STRLEN n_a;
+        ap_rprintf(thread_r, "Died: %s\n", SvPV(ERRSV, n_a));
+    }
+
+handler_done:
 
     PL_perl_destruct_level = 1;
     perl_destruct(my_perl);

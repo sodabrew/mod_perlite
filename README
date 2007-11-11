@@ -1,4 +1,4 @@
-mod_perlite version 0.05
+mod_perlite version 0.06
 ========================
 
 mod_perlite is a lightweight Perl module for Apache 2.x that is
@@ -12,9 +12,9 @@ INSTALLATION
 
 To install this module type the following:
 
-   perl Makefile.PL
-   make
-   make install
+   ./Build.PL
+   ./Build
+   ./Build install
 
 Then add the following directives to your Apache httpd.conf:
 
