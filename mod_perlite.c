@@ -41,6 +41,8 @@ XS(XS_Perlite__env)
         dXSTARG;
         HV *RETVAL, *hv = newHV();
 
+	// TODO: Accept an HV ref argument and replace its elements with those below.
+
         ap_add_common_vars(thread_r);
         ap_add_cgi_vars(thread_r);
 
@@ -67,15 +69,25 @@ XS(XS_Perlite__log)
         char        * msg = (char *)SvPV_nolen(ST(1));
         dXSTARG;
 
+        // I'm not going to bother exporting these constants.
+	// I suggest that authors use Sys::Syslog's LOG_foolevel.
         switch (level) {
+            case APLOG_EMERG:
+            case APLOG_ALERT:
+            case APLOG_CRIT:
+            case APLOG_ERR:
+            case APLOG_WARNING:
+            case APLOG_NOTICE:
+            case APLOG_INFO:
             case APLOG_DEBUG:
-	        // No problem
+	        // We know these.
 	        break;
 	    default:
-	        // Error if we don't know the right level
+	        // Default to ERR.
 	        level = APLOG_ERR;
 	}
 
+        // Can't use the LOG macro due to constant stringification of level.
         ap_log_rerror(APLOG_MARK, level, 0, thread_r, "%s", msg);
 
     }
