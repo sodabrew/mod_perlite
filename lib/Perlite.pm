@@ -10,8 +10,8 @@ open(my $out, '>:via(Perlite::IO)', 'mod_perlite_stdout' );
 *STDOUT = $out;
 
 # Catch and pretty-print errors
-$SIG{__DIE__} = sub { print "<br><b>Dying</b>: <pre>\n$@\n</pre>\n" };
-$SIG{__WARN__} = sub { print "<br><b>Warning</b>: <pre>\n$@\n</pre>\n" };
+$SIG{__DIE__} = sub { print "<br><b>Dying</b>: <pre>\n$@\n</pre>\n" if $@ };
+$SIG{__WARN__} = sub { print "<br><b>Warning</b>: <pre>\n$@\n</pre>\n" if $@ };
 
 # Replace the actual %ENV with a CGI-compatible %ENV
 %ENV = %{ Perlite::_env () };
