@@ -21,6 +21,7 @@ xs_init(pTHX)
 
 // XS functions to expose some basic Apache hooks
 
+__thread int suppress_output;
 __thread request_rec *thread_r;
 
 static int perlite_copy_env(void *hv, const char *key, const char *val)
@@ -35,8 +36,6 @@ XS(XS_Perlite__env)
 {
     dXSARGS;
     LOG(DEBUG, "Preparing %%ENV");
-    if (items != 0)
-        Perl_croak(aTHX_ "Usage: Perlite::_env()");
     {
         dXSTARG;
         HV *RETVAL, *hv = newHV();
@@ -134,11 +133,28 @@ XS(XS_PerliteIO__write)
         int           RETVAL;
         char        * buf = (char *)SvPV(ST(0), len);
         dXSTARG;
-        RETVAL = ap_rwrite(buf, len, thread_r);
+        if (!suppress_output) {
+	    RETVAL = ap_rwrite(buf, len, thread_r);
+        } else {
+            RETVAL = len;
+        }
         XSprePUSH; PUSHi((IV)RETVAL);
     }
     XSRETURN(1);
 }
+
+XS(XS_Perlite__exit);
+XS(XS_Perlite__exit)
+{
+    dXSARGS;
+    {
+        dXSTARG;
+        LOG(DEBUG, "Exiting");
+	suppress_output = 1;
+    }
+    XSRETURN(0);
+}
+
 
 // Meat of the module
 
@@ -146,10 +162,12 @@ static int perlite_handler(request_rec *r)
 {
     PerlInterpreter *my_perl;
 
-    int argc = 0, res = 0;
+    int argc = 0, res = 0, retval = OK;
     char *argv[] = { "", NULL };
     char *run_file[] = { "", NULL };
     char **env = NULL;
+    char path_before[HUGE_STRING_LEN], path_after[HUGE_STRING_LEN];
+    const char *location;
 
     // Only handle our own files
     if (strcmp(r->handler, PERLITE_MAGIC_TYPE)) {
@@ -158,11 +176,14 @@ static int perlite_handler(request_rec *r)
 
     // Make the request available as a thread-local global.
     thread_r = r;
+    suppress_output = 0;
 
     if (r->header_only) {
         // We have no further headers to add at this time.
         return OK;
     }
+
+    getcwd(path_before, HUGE_STRING_LEN -1);
 
     PERL_SYS_INIT3(&argc,&argv,&env);
     my_perl = perl_alloc();
@@ -177,17 +198,20 @@ static int perlite_handler(request_rec *r)
     newXSproto("Perlite::IO::_header", XS_PerliteIO__header, __FILE__, "$$");
     newXSproto("Perlite::_env", XS_Perlite__env, __FILE__, "");
     newXSproto("Perlite::_log", XS_Perlite__log, __FILE__, "$$");
+    newXSproto("Perlite::_exit", XS_Perlite__exit, __FILE__, "");
 
-    eval_pv("use Perlite;", G_EVAL|G_SCALAR|G_KEEPERR);
+    require_pv("Perlite.pm");
     if (SvTRUE(ERRSV)) {
-        ap_rprintf(thread_r, "Died: %s\n", SvPV_nolen(ERRSV));
+        LOG(ERR, "Please make sure that you have Perlite.pm installed in one of the INC locations that follow:"
+                 " %s\n", SvPV_nolen(ERRSV));
+	retval = HTTP_INTERNAL_SERVER_ERROR;
         goto handler_done;
     }
 
     run_file[0] = r->filename;
     res = call_argv("Perlite::run_file", G_EVAL|G_SCALAR|G_KEEPERR, run_file);
     if (SvTRUE(ERRSV)) {
-        ap_rprintf(thread_r, "Died: %s\n", SvPV_nolen(ERRSV));
+        ap_rprintf(thread_r, "Error: %s\n", SvPV_nolen(ERRSV));
     }
 
 handler_done:
@@ -197,7 +221,36 @@ handler_done:
     perl_free(my_perl);
     PERL_SYS_TERM();
     
-    return OK;
+    getcwd(path_after, HUGE_STRING_LEN -1);
+    LOG(DEBUG, "Before running Perl, pwd is [%s]. After running Perl, pwd is [%s]", path_before, path_after);
+    chdir(path_before);
+
+         location = apr_table_get(r->headers_out, "Location");
+ 
+         if (location && location[0] == '/' && r->status == 200) {
+             /* This redirect needs to be a GET no matter what the original
+              * method was.
+              */
+             r->method = apr_pstrdup(r->pool, "GET");
+             r->method_number = M_GET;
+ 
+             /* We already read the message body (if any), so don't allow
+              * the redirected request to think it has one.  We can ignore
+              * Transfer-Encoding, since we used REQUEST_CHUNKED_ERROR.
+              */
+             apr_table_unset(r->headers_in, "Content-Length");
+ 
+             ap_internal_redirect_handler(location, r);
+             return OK;
+         }
+         else if (location && r->status == 200) {
+             /* XX Note that if a script wants to produce its own Redirect
+              * body, it now has to explicitly *say* "Status: 302"
+              */
+             return HTTP_MOVED_TEMPORARILY;
+         }
+
+    return retval;
 }
 
 // Setup functions

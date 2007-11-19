@@ -46,5 +46,5 @@ $class->new(
     module_name     => 'Perlite',
     license         => 'perl',
     dist_author     => 'Aaron Stone <aaron@serendipity.cx>',
-    dist_version    => '0.06',
+    dist_version    => '0.07',
 )->create_build_script;
