@@ -22,7 +22,10 @@ xs_init(pTHX)
 // XS functions to expose some basic Apache hooks
 
 __thread int suppress_output;
+__thread int thread_read_calls;
 __thread request_rec *thread_r;
+//__thread apr_bucket *thread_bucket;
+//__thread apr_bucket_brigade *thread_bb;
 
 static int perlite_copy_env(void *hv, const char *key, const char *val)
 {
@@ -40,7 +43,7 @@ XS(XS_Perlite__env)
         dXSTARG;
         HV *RETVAL, *hv = newHV();
 
-	// TODO: Accept an HV ref argument and replace its elements with those below.
+        // TODO: Accept an HV ref argument and replace its elements with those below.
 
         ap_add_common_vars(thread_r);
         ap_add_cgi_vars(thread_r);
@@ -69,7 +72,7 @@ XS(XS_Perlite__log)
         dXSTARG;
 
         // I'm not going to bother exporting these constants.
-	// I suggest that authors use Sys::Syslog's LOG_foolevel.
+        // I suggest that authors use Sys::Syslog's LOG_foolevel.
         switch (level) {
             case APLOG_EMERG:
             case APLOG_ALERT:
@@ -79,12 +82,12 @@ XS(XS_Perlite__log)
             case APLOG_NOTICE:
             case APLOG_INFO:
             case APLOG_DEBUG:
-	        // We know these.
-	        break;
-	    default:
-	        // Default to ERR.
-	        level = APLOG_ERR;
-	}
+                // We know these.
+                break;
+            default:
+                // Default to ERR.
+                level = APLOG_ERR;
+        }
 
         // Can't use the LOG macro due to constant stringification of level.
         ap_log_rerror(APLOG_MARK, level, 0, thread_r, "%s", msg);
@@ -107,14 +110,14 @@ XS(XS_PerliteIO__header)
 
         apr_table_add(thread_r->headers_out, key, val);
 
-	if (strcasecmp(key, "Content-Type") == 0) {
-	    LOG(INFO, "Setting Content-Type: %s", val);
+        if (strcasecmp(key, "Content-Type") == 0) {
+            LOG(INFO, "Setting Content-Type: %s", val);
             ap_set_content_type(thread_r, apr_pstrdup(thread_r->pool, val));
-	} else if (strcasecmp(key, "Location") == 0) {
+        } else if (strcasecmp(key, "Location") == 0) {
             // TODO: set location (r, val);
-	} else if (strcasecmp(key, "Status") == 0) {
+        } else if (strcasecmp(key, "Status") == 0) {
             // TODO: set status (r, val);
-	}
+        }
 
         XSprePUSH; PUSHi((IV)1);
     }
@@ -134,11 +137,74 @@ XS(XS_PerliteIO__write)
         char        * buf = (char *)SvPV(ST(0), len);
         dXSTARG;
         if (!suppress_output) {
-	    RETVAL = ap_rwrite(buf, len, thread_r);
+            RETVAL = ap_rwrite(buf, len, thread_r);
         } else {
             RETVAL = len;
         }
         XSprePUSH; PUSHi((IV)RETVAL);
+    }
+    XSRETURN(1);
+}
+
+/* Each call should return one Apache bucket to Perl, and undef when we're done. */
+XS(XS_PerliteIO__read);
+XS(XS_PerliteIO__read)
+{
+    dXSARGS;
+    LOG(DEBUG, "In %s: %d", __func__, __LINE__);
+    if (items != 0)
+        Perl_croak(aTHX_ "Usage: PerliteIO::_read()");
+    {
+        SV           * RETVAL = &PL_sv_undef;
+        int            get_loop;
+
+        apr_status_t rv;
+        apr_bucket *bucket;
+        apr_bucket_brigade *brigade;
+        apr_size_t len;
+        char buf[HUGE_STRING_LEN];
+        int loops = 0;
+
+        dXSTARG;
+
+        if (thread_read_calls++ > 5) {
+            LOG(ERR, "Called _read too many times");
+            goto _write_end;
+        }
+
+        brigade = apr_brigade_create(thread_r->pool, thread_r->connection->bucket_alloc);
+
+        // Get the first brigade, or return undef.
+        if (ap_get_brigade(thread_r->input_filters, brigade, AP_MODE_READBYTES, APR_BLOCK_READ, len) != APR_SUCCESS) {
+            LOG(ERR, "No further brigades");
+            goto _write_end;
+        }
+
+        RETVAL = newSV(0);
+
+        // Process this and all subsequent brigades.
+        do { 
+            len = HUGE_STRING_LEN - 1;
+
+            apr_brigade_flatten(brigade, buf, &len);
+            apr_brigade_cleanup(brigade);
+
+            LOG(ERR, "Read [%.*s] length [%d] from input", len, buf, len);
+
+            sv_catpvn(RETVAL, buf, len);
+
+            if (loops++ > 5) {
+                LOG(ERR, "Looped too many times");
+                goto _write_end;
+            }
+        } while (ap_get_brigade(thread_r->input_filters, brigade, AP_MODE_READBYTES, APR_BLOCK_READ, len) == APR_SUCCESS);
+
+    _write_end:
+
+        LOG(ERR, "Pushing [%s] back out", SvPV_nolen(RETVAL));
+
+        // FIXME: Is it safe to call sv_2mortal on PL_sv_undef?
+        XSprePUSH; PUSHs(sv_2mortal(RETVAL));
     }
     XSRETURN(1);
 }
@@ -150,7 +216,7 @@ XS(XS_Perlite__exit)
     {
         dXSTARG;
         LOG(DEBUG, "Exiting");
-	suppress_output = 1;
+        suppress_output = 1;
     }
     XSRETURN(0);
 }
@@ -163,6 +229,7 @@ static int perlite_handler(request_rec *r)
     PerlInterpreter *my_perl;
 
     int argc = 0, res = 0, retval = OK;
+    apr_status_t rv;
     char *argv[] = { "", NULL };
     char *run_file[] = { "", NULL };
     char **env = NULL;
@@ -177,10 +244,11 @@ static int perlite_handler(request_rec *r)
     // Make the request available as a thread-local global.
     thread_r = r;
     suppress_output = 0;
+    thread_read_calls = 0;
 
     if (r->header_only) {
-        // We have no further headers to add at this time.
-        return OK;
+        // TODO: suppress body output?
+        LOG(ERR, "Only asked for headers, how rude!");
     }
 
     getcwd(path_before, HUGE_STRING_LEN -1);
@@ -194,6 +262,7 @@ static int perlite_handler(request_rec *r)
     perl_parse(my_perl, xs_init, argc, argv, env);
     perl_run(my_perl);
 
+    newXSproto("Perlite::IO::_read", XS_PerliteIO__read, __FILE__, "");
     newXSproto("Perlite::IO::_write", XS_PerliteIO__write, __FILE__, "$");
     newXSproto("Perlite::IO::_header", XS_PerliteIO__header, __FILE__, "$$");
     newXSproto("Perlite::_env", XS_Perlite__env, __FILE__, "");
@@ -204,7 +273,7 @@ static int perlite_handler(request_rec *r)
     if (SvTRUE(ERRSV)) {
         LOG(ERR, "Please make sure that you have Perlite.pm installed in one of the INC locations that follow:"
                  " %s\n", SvPV_nolen(ERRSV));
-	retval = HTTP_INTERNAL_SERVER_ERROR;
+        retval = HTTP_INTERNAL_SERVER_ERROR;
         goto handler_done;
     }
 
@@ -222,33 +291,36 @@ handler_done:
     PERL_SYS_TERM();
     
     getcwd(path_after, HUGE_STRING_LEN -1);
-    LOG(DEBUG, "Before running Perl, pwd is [%s]. After running Perl, pwd is [%s]", path_before, path_after);
+    LOG(ERR, "Before running Perl, pwd is [%s]. After running Perl, pwd is [%s]", path_before, path_after);
     chdir(path_before);
 
-         location = apr_table_get(r->headers_out, "Location");
+    location = apr_table_get(r->headers_out, "Location");
  
-         if (location && location[0] == '/' && r->status == 200) {
-             /* This redirect needs to be a GET no matter what the original
-              * method was.
-              */
-             r->method = apr_pstrdup(r->pool, "GET");
-             r->method_number = M_GET;
+    if (location && location[0] == '/' && r->status == 200) {
+        /* This redirect needs to be a GET no matter what the original
+         * method was.
+         */
+        r->method = apr_pstrdup(r->pool, "GET");
+        r->method_number = M_GET;
  
-             /* We already read the message body (if any), so don't allow
-              * the redirected request to think it has one.  We can ignore
-              * Transfer-Encoding, since we used REQUEST_CHUNKED_ERROR.
-              */
-             apr_table_unset(r->headers_in, "Content-Length");
+        /* We already read the message body (if any), so don't allow
+         * the redirected request to think it has one.  We can ignore
+         * Transfer-Encoding, since we used REQUEST_CHUNKED_ERROR.
+         */
+        apr_table_unset(r->headers_in, "Content-Length");
  
-             ap_internal_redirect_handler(location, r);
-             return OK;
-         }
-         else if (location && r->status == 200) {
-             /* XX Note that if a script wants to produce its own Redirect
-              * body, it now has to explicitly *say* "Status: 302"
-              */
-             return HTTP_MOVED_TEMPORARILY;
-         }
+        ap_internal_redirect_handler(location, r);
+        return OK;
+    }
+    else if (location && r->status == 200) {
+        /* XX Note that if a script wants to produce its own Redirect
+         * body, it now has to explicitly *say* "Status: 302"
+         */
+        return HTTP_MOVED_TEMPORARILY;
+    }
+
+//    rv = ap_pass_brigade(r->output_filters, thread_bb);
+
 
     return retval;
 }

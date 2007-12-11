@@ -29,7 +29,7 @@ sub PUSHED { bless \*PUSHED, $_[0] }
 
 sub OPEN { 1 }
 
-sub FILL { undef }
+sub FILL { undef; return _read () }
 
 my $body = 0;
 my $unput = "";
@@ -73,6 +73,7 @@ sub WRITE {
 #        Perlite::_log(1, "Looking at $_");
 #        Perlite::_log(1, "Missing header") unless $header;
 #        Perlite::_log(1, "Missing value for header $header") unless $value;
+#        Perlite::_log(1, "Setting header [$header]: [$value]");
 	last unless $header and $value;
         _header($header, $value);
     }
@@ -101,7 +102,7 @@ sub run_file {
     return 1;
 
   Perlite__EXIT:
-    return _exit;
+    return _exit ();
 }
 
 1;

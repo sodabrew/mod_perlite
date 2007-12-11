@@ -1,5 +1,9 @@
 Revision history for Perlite Apache extension.
 
+0.08  Mon Dec 10 19:09:21 2007
+        - read operations written (but not working).
+	- restores the working directory.
+
 0.07  Sun Nov 18 20:20:20 2007
         - finally got exit (mostly) working.
 	- finally have redirection working.
