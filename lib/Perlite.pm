@@ -29,7 +29,7 @@ sub PUSHED { bless \*PUSHED, $_[0] }
 
 sub OPEN { 1 }
 
-sub FILL { undef; return _read () }
+sub FILL { return _read () }
 
 my $body = 0;
 my $unput = "";

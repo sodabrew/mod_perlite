@@ -1,5 +1,10 @@
 Revision history for Perlite Apache extension.
 
+0.09  Thu Dec 10 19:09:21 2008
+        - added TODO of outstanding tasks.
+        - moved main code repo to github.org.
+	- accepted build patch from Lars Dɪᴇᴄᴋᴏᴡ 迪拉斯
+
 0.08  Mon Dec 10 19:09:21 2007
         - read operations written (but not working).
 	- restores the working directory.

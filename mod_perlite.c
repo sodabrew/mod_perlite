@@ -216,7 +216,8 @@ XS(XS_Perlite__exit)
     {
         dXSTARG;
         LOG(DEBUG, "Exiting");
-        suppress_output = 1;
+        Perl_croak(aTHX_ "Exiting");
+        // suppress_output = 1; wtf
     }
     XSRETURN(0);
 }
@@ -276,6 +277,14 @@ static int perlite_handler(request_rec *r)
         retval = HTTP_INTERNAL_SERVER_ERROR;
         goto handler_done;
     }
+
+//    require_pv("Sys/Protect.pm");
+//    if (SvTRUE(ERRSV)) {
+//        LOG(ERR, "Please make sure that you have Sys/Protect.pm installed in one of the INC locations that follow:"
+//                 " %s\n", SvPV_nolen(ERRSV));
+//        retval = HTTP_INTERNAL_SERVER_ERROR;
+//        goto handler_done;
+//    }
 
     run_file[0] = r->filename;
     res = call_argv("Perlite::run_file", G_EVAL|G_SCALAR|G_KEEPERR, run_file);
