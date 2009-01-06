@@ -73,7 +73,7 @@ $class->new(
     license         => 'perl',
     dist_author     => 'Aaron Stone <aaron@serendipity.cx>',
     dist_abstract   => 'lightweight Perl module for Apache 2.x',
-    dist_version    => '0.08',
+    dist_version    => '0.09',
     build_requires  => {
         'File::Which'   => 0,
     },
