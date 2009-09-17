@@ -1,0 +1,13 @@
+APACHE_ROOT=c:/progra~1/apache~1/apache2.2
+PERL_ROOT=c:/perl
+
+all : mod_perlite.so
+
+mod_perlite.o : mod_perlite.c
+	gcc -shared -c mod_perlite.c -DMP_SYS_DL_DLOPEN=1 -MD -DNDEBUG -O1 -DWIN32 -DNO_STRICT -DHAVE_DES_FCRYPT -DUSE_SITECUSTOMIZE -DPRIVLIB_LAST_IN_INC -DPERL_IMPLICIT_CONTEXT -DPERL_IMPLICIT_SYS -DUSE_PERLIO -DPERL_MSVCRT_READFIX  -I"$(PERL_ROOT)/lib/CORE"  -I"$(APACHE_ROOT)/include" -DVERSION=\"0.09\"
+
+mod_perlite.so : mod_perlite.o
+	gcc -shared -o mod_perlite.so mod_perlite.o -L"$(APACHE_ROOT)/lib"  "$(PERL_ROOT)/lib/core/perl510.lib" -lapr1 -laprutil1 "$(APACHE_ROOT)/lib/libhttpd.lib"
+
+install :
+	copy mod_perlite.so "$(APACHE_ROOT)/modules/."
