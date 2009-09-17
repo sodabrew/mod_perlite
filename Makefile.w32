@@ -10,4 +10,4 @@ mod_perlite.so : mod_perlite.o
 	gcc -shared -o mod_perlite.so mod_perlite.o -L"$(APACHE_ROOT)/lib"  "$(PERL_ROOT)/lib/core/perl510.lib" -lapr1 -laprutil1 "$(APACHE_ROOT)/lib/libhttpd.lib"
 
 install :
-	copy mod_perlite.so "$(APACHE_ROOT)/modules/."
+	cp mod_perlite.so "$(APACHE_ROOT)/modules/."
