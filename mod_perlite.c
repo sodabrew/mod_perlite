@@ -3,6 +3,10 @@
 
 #define LOG(level, foo...) ap_log_rerror(APLOG_MARK, APLOG_ ## level, 0, thread_r, foo);
 
+int perlite_argc = 0;
+char *perlite_argv[] = { "", NULL };
+char **perlite_env = NULL;
+
 // DynaLoader from perl -MExtUtils::Embed -e xsinit -- -o -
 
 EXTERN_C void xs_init (pTHX);
@@ -229,11 +233,9 @@ static int perlite_handler(request_rec *r)
 {
     PerlInterpreter *my_perl;
 
-    int argc = 0, res = 0, retval = OK;
+    int res = 0, retval = OK;
     apr_status_t rv;
-    char *argv[] = { "", NULL };
     char *run_file[] = { "", NULL };
-    char **env = NULL;
     char path_before[HUGE_STRING_LEN], path_after[HUGE_STRING_LEN];
     const char *location;
 
@@ -254,13 +256,12 @@ static int perlite_handler(request_rec *r)
 
     getcwd(path_before, HUGE_STRING_LEN -1);
 
-    PERL_SYS_INIT3(&argc,&argv,&env);
     my_perl = perl_alloc();
     PL_perl_destruct_level = 1;
     perl_construct(my_perl);
 
     PL_exit_flags |= PERL_EXIT_DESTRUCT_END;
-    perl_parse(my_perl, xs_init, argc, argv, env);
+    perl_parse(my_perl, xs_init, perlite_argc, perlite_argv, perlite_env);
     perl_run(my_perl);
 
     newXSproto("Perlite::IO::_read", XS_PerliteIO__read, __FILE__, "");
@@ -297,11 +298,15 @@ handler_done:
     PL_perl_destruct_level = 1;
     perl_destruct(my_perl);
     perl_free(my_perl);
-    PERL_SYS_TERM();
     
     getcwd(path_after, HUGE_STRING_LEN -1);
-    LOG(ERR, "Before running Perl, pwd is [%s]. After running Perl, pwd is [%s]", path_before, path_after);
+    LOG(DEBUG, "Before running Perl, pwd is [%s]. After running Perl, pwd is [%s]", path_before, path_after);
+#ifdef _WIN32
+    /* don't use chdir() to back to original directory cause by crash */
+    SetCurrentDirectory(path_before);
+#else
     chdir(path_before);
+#endif
 
     location = apr_table_get(r->headers_out, "Location");
  
@@ -336,8 +341,24 @@ handler_done:
 
 // Setup functions
 
+static apr_pool_t *server_pool = NULL;
+
+static apr_status_t perlite_hook_term(void *data)
+{
+    PERL_SYS_TERM();
+}
+
+static int perlite_hook_init(apr_pool_t *pconf, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *s)
+{
+    PERL_SYS_INIT3(&perlite_argc, &perlite_argv, &perlite_env);
+    apr_pool_create(&server_pool, pconf);
+    apr_pool_cleanup_register(server_pool, NULL, perlite_hook_term, apr_pool_cleanup_null);
+    return OK;
+}
+
 static void perlite_register_hooks(apr_pool_t *p)
 {
+    ap_hook_open_logs(perlite_hook_init, NULL, NULL, APR_HOOK_FIRST);
     ap_hook_handler(perlite_handler, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
