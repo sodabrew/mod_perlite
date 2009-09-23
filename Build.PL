@@ -10,7 +10,7 @@ my $class = Module::Build->subclass(
 
 sub ACTION_code {
     my $self = shift;
-    my $apxs => $self->args('apxs');
+    my $apxs = $self->args('apxs');
     unless ($apxs) {
         use File::Which qw(which);
         my @apxs = which 'apxs';
