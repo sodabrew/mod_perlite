@@ -25,6 +25,8 @@ package Perlite::IO;
 
 # XS: _write, _header
 
+sub BINMODE { 1 }
+
 sub PUSHED { bless \*PUSHED, $_[0] }
 
 sub OPEN { 1 }
