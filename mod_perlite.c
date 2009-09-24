@@ -26,7 +26,6 @@ xs_init(pTHX)
 // XS functions to expose some basic Apache hooks
 
 __thread int suppress_output;
-__thread int thread_read_calls;
 __thread request_rec *thread_r;
 //__thread apr_bucket *thread_bucket;
 //__thread apr_bucket_brigade *thread_bb;
@@ -160,48 +159,25 @@ XS(XS_PerliteIO__read)
         Perl_croak(aTHX_ "Usage: PerliteIO::_read()");
     {
         SV           * RETVAL = &PL_sv_undef;
-        int            get_loop;
-
         apr_status_t rv;
-        apr_bucket *bucket;
-        apr_bucket_brigade *brigade;
-        apr_size_t len;
-        char buf[HUGE_STRING_LEN];
-        int loops = 0;
-
         dXSTARG;
-
-        if (thread_read_calls++ > 5) {
-            LOG(ERR, "Called _read too many times");
-            goto _write_end;
-        }
-
-        brigade = apr_brigade_create(thread_r->pool, thread_r->connection->bucket_alloc);
-
-        // Get the first brigade, or return undef.
-        if (ap_get_brigade(thread_r->input_filters, brigade, AP_MODE_READBYTES, APR_BLOCK_READ, len) != APR_SUCCESS) {
-            LOG(ERR, "No further brigades");
-            goto _write_end;
-        }
 
         RETVAL = newSV(0);
 
-        // Process this and all subsequent brigades.
-        do { 
-            len = HUGE_STRING_LEN - 1;
-
-            apr_brigade_flatten(brigade, buf, &len);
-            apr_brigade_cleanup(brigade);
-
-            LOG(ERR, "Read [%.*s] length [%d] from input", len, buf, len);
-
-            sv_catpvn(RETVAL, buf, len);
-
-            if (loops++ > 5) {
-                LOG(ERR, "Looped too many times");
-                goto _write_end;
+        rv = ap_setup_client_block(thread_r, REQUEST_CHUNKED_DECHUNK);
+        if (rv != OK) goto _write_end;
+        if (!ap_should_client_block(thread_r)) goto _write_end;
+        while (1) {
+            char buf[HUGE_STRING_LEN];
+            apr_size_t len = ap_get_client_block(thread_r, buf, sizeof(buf)-1);
+            if (len == 0) {
+                break; /* end of session */
+            } else if (len < 0) {
+                break; /* error */
+            } else {
+                sv_catpvn(RETVAL, buf, len);
             }
-        } while (ap_get_brigade(thread_r->input_filters, brigade, AP_MODE_READBYTES, APR_BLOCK_READ, len) == APR_SUCCESS);
+        }
 
     _write_end:
 
@@ -247,7 +223,6 @@ static int perlite_handler(request_rec *r)
     // Make the request available as a thread-local global.
     thread_r = r;
     suppress_output = 0;
-    thread_read_calls = 0;
 
     if (r->header_only) {
         // TODO: suppress body output?
@@ -298,7 +273,7 @@ handler_done:
     PL_perl_destruct_level = 1;
     perl_destruct(my_perl);
     perl_free(my_perl);
-    
+
     getcwd(path_after, HUGE_STRING_LEN -1);
     LOG(DEBUG, "Before running Perl, pwd is [%s]. After running Perl, pwd is [%s]", path_before, path_after);
 #ifdef _WIN32
