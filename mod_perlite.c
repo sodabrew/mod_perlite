@@ -333,7 +333,7 @@ static int perlite_hook_init(apr_pool_t *pconf, apr_pool_t *plog, apr_pool_t *pt
 
 static void perlite_register_hooks(apr_pool_t *p)
 {
-    ap_hook_open_logs(perlite_hook_init, NULL, NULL, APR_HOOK_FIRST);
+    ap_hook_open_logs(perlite_hook_init, NULL, NULL, APR_HOOK_REALLY_FIRST);
     ap_hook_handler(perlite_handler, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
