@@ -10,8 +10,27 @@ open(my $out, '>:via(Perlite::IO)', 'mod_perlite_stdout' );
 *STDOUT = $out;
 
 # Catch and pretty-print errors
-$SIG{__DIE__} = sub { print "<br><b>Dying</b>: <pre>\n$@\n</pre>\n" if $@ };
-$SIG{__WARN__} = sub { print "<br><b>Warning</b>: <pre>\n$@\n</pre>\n" if $@ };
+$SIG{__DIE__} = sub {
+    my $err = $_[0] || $@ || $!;
+    if ($Perlite::IO::body) {
+        print "\n\n<br><b>Dying</b>: <pre>\n$err\n</pre>\n" if $err;
+        #my $i = 0;
+        #while (my @c = caller($i++)) {
+        #    print "<pre>";
+        #    print $c[3] ;
+        #    print "</pre>";
+        #}
+    } else {
+        Perlite::IO::_header("Content-Type", "text/html");
+    }
+    *CORE::GLOBAL::exit = sub { };
+};
+
+$SIG{__WARN__} = sub {
+    if ($Perlite::IO::body) {
+        print "<br><b>Warning</b>: <pre>\n$_[0]\n</pre>\n" 
+    }
+};
 
 # Replace the actual %ENV with a CGI-compatible %ENV
 %ENV = %{ Perlite::_env () };
@@ -33,7 +52,7 @@ sub OPEN { 1 }
 
 sub FILL { return _read () }
 
-my $body = 0;
+our $body = 0;
 my $unput = "";
 
 sub WRITE {
@@ -76,7 +95,7 @@ sub WRITE {
 #        Perlite::_log(1, "Missing header") unless $header;
 #        Perlite::_log(1, "Missing value for header $header") unless $value;
 #        Perlite::_log(1, "Setting header [$header]: [$value]");
-	last unless $header and $value;
+        last unless $header and $value;
         _header($header, $value);
     }
 
