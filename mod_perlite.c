@@ -27,8 +27,6 @@ xs_init(pTHX)
 
 __thread int suppress_output;
 __thread request_rec *thread_r;
-//__thread apr_bucket *thread_bucket;
-//__thread apr_bucket_brigade *thread_bb;
 
 static int perlite_copy_env(void *hv, const char *key, const char *val)
 {
@@ -307,9 +305,6 @@ handler_done:
          */
         return HTTP_MOVED_TEMPORARILY;
     }
-
-//    rv = ap_pass_brigade(r->output_filters, thread_bb);
-
 
     return retval;
 }
