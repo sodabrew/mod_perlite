@@ -1,21 +1,21 @@
 Revision history for Perlite Apache extension.
 
 0.09  Thu Dec 10 19:09:21 2008
-        - added TODO of outstanding tasks.
-        - moved main code repo to github.org.
+	- added TODO of outstanding tasks.
+	- moved main code repo to github.org.
 	- accepted build patch from Lars Dɪᴇᴄᴋᴏᴡ 迪拉斯
 
 0.08  Mon Dec 10 19:09:21 2007
-        - read operations written (but not working).
+	- read operations written (but not working).
 	- restores the working directory.
 	- started the test suite.
 
 0.07  Sun Nov 18 20:20:20 2007
-        - finally got exit (mostly) working.
+	- finally got exit (mostly) working.
 	- finally have redirection working.
 
 0.06  Sat Nov 10 22:38:14 2007
-        - converted to Module::Build.
+	- converted to Module::Build.
 	- look for Content-Type headers.
 	- use a macro to make logging prettier.
 	- use SvPV_nolen since we weren't using lengths.
