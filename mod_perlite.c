@@ -7,6 +7,8 @@ int perlite_argc = 0;
 char *perlite_argv[] = { "", NULL };
 char **perlite_env = NULL;
 
+module AP_MODULE_DECLARE_DATA perlite_module;
+
 // DynaLoader from perl -MExtUtils::Embed -e xsinit -- -o -
 
 EXTERN_C void xs_init (pTHX);
@@ -213,6 +215,9 @@ static int perlite_handler(request_rec *r)
     char path_before[HUGE_STRING_LEN], path_after[HUGE_STRING_LEN];
     const char *location;
 
+    perlite_config *config;
+    config = ap_get_module_config(r->server->module_config, &perlite_module);
+
     // Only handle our own files
     if (strcmp(r->handler, PERLITE_MAGIC_TYPE)) {
         return DECLINED;
@@ -252,13 +257,16 @@ static int perlite_handler(request_rec *r)
         goto handler_done;
     }
 
-//    require_pv("Sys/Protect.pm");
-//    if (SvTRUE(ERRSV)) {
-//        LOG(ERR, "Please make sure that you have Sys/Protect.pm installed in one of the INC locations that follow:"
-//                 " %s\n", SvPV_nolen(ERRSV));
-//        retval = HTTP_INTERNAL_SERVER_ERROR;
-//        goto handler_done;
-//    }
+    /* TODO: Generalize by copying mod_perl's PerlLoadModule instead. */
+    if (config->sysprotect) {
+        require_pv("Sys/Protect.pm");
+        if (SvTRUE(ERRSV)) {
+            LOG(ERR, "Please make sure that you have Sys/Protect.pm installed in one of the INC locations that follow:"
+                     " %s\n", SvPV_nolen(ERRSV));
+            retval = HTTP_INTERNAL_SERVER_ERROR;
+            goto handler_done;
+        }
+    }
 
     run_file[0] = r->filename;
     res = call_argv("Perlite::run_file", G_EVAL|G_SCALAR|G_KEEPERR, run_file);
@@ -332,27 +340,38 @@ static void perlite_register_hooks(apr_pool_t *p)
     ap_hook_handler(perlite_handler, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
-static apr_status_t destroy_perlite_config(void *data)
+static void *create_perlite_config(apr_pool_t *p, server_rec *s)
 {
-    return APR_SUCCESS;
+    perlite_config *config;
+
+    config = (perlite_config *) apr_pcalloc(p, sizeof(perlite_config));
+    config->sysprotect = 0;
+
+    return (void *)config;
 }
 
-void *create_perlite_config(apr_pool_t *p, char *dummy)
+static const char *set_perlite_sysprotect(cmd_parms *parms, void *mconfig, int flag)
 {
+    perlite_config *config;
+
+    config = ap_get_module_config(parms->server->module_config, &perlite_module);
+    config->sysprotect = flag;
+
     return NULL;
 }
 
-void *merge_perlite_config(apr_pool_t *p, void *base_conf, void *new_conf)
-{
-    return NULL;
-}
+static const command_rec perlite_command_table[] = {
+    AP_INIT_FLAG(    "PerliteSysProtect",   set_perlite_sysprotect,  NULL, OR_FILEINFO,
+                     "On or Off to enable or disable Sys::Protect"),
+    { NULL }
+};
 
 module AP_MODULE_DECLARE_DATA perlite_module = {
     STANDARD20_MODULE_STUFF, 
-    create_perlite_config,      /* create per-dir    config structures */
-    merge_perlite_config,       /* merge  per-dir    config structures */
-    NULL,                       /* create per-server config structures */
-    NULL,                       /* merge  per-server config structures */
-    NULL,                       /* table of config file commands       */
-    perlite_register_hooks      /* register hooks                      */
+    NULL,                         /* create per-dir    config structures */
+    NULL,                         /* merge  per-dir    config structures */
+    create_perlite_config,        /* create per-server config structures */
+    NULL,                         /* merge  per-server config structures */
+    perlite_command_table,        /* table of config file commands       */
+    perlite_register_hooks        /* register hooks                      */
 };

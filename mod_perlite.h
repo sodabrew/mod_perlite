@@ -26,4 +26,8 @@
 #define PERLITE_MAGIC_TYPE "application/x-httpd-perlite"
 #define PERLITE_SCRIPT "perlite-script"
 
+typedef struct {
+  int sysprotect; /* require Sys::Protect before calling user code. */
+} perlite_config;
+
 #endif
