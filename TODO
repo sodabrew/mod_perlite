@@ -1,6 +1,5 @@
 TODO list for mod_perlite:
 
- - Fix POST processing ('read' does not work reliably)
  - Limit Perl running time.
  - Find ways to cache code.
- - What's up with this github repo?
+ - Add a 'PerliteLoadModule' configuration directive ala mod_perl.
