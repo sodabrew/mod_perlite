@@ -1,9 +1,9 @@
 use strict;
 use warnings;
 
-use Module::Build;
+use Apache::TestMB qw();
 
-my $class = Module::Build->subclass(
+my $class = Apache::TestMB->subclass(
     class => "Module::Build::Custom",
     code => <<'SUBCLASS' );
 
@@ -73,8 +73,17 @@ $class->new(
     dist_author     => 'Aaron Stone <aaron@serendipity.cx>',
     dist_abstract   => 'lightweight Perl module for Apache 2.x',
     dist_version    => '0.10',
-    build_requires  => {
+    configure_requires => {
+        # need to be available for Build.PL to run
+        'Apache::Test'  => '1.30',
         'File::Which'   => 0,
+        'Module::Build' => '0.26', # for config_data
+    },
+    build_requires  => {
+        # Those below are actually test_requires, but only Module::Install makes
+        # that distinction; Module::Build and META.yml don't (yet).
+        'CGI'           => 0,
+        'Data::Dumper'  => 0,
     },
     requires => {
         'perl'          => '5.6.0',
@@ -82,8 +91,10 @@ $class->new(
     add_to_cleanup  => [
         'mod_perlite.o',
         'mod_perlite.so',
+        't/conf/apache_test_config.pm',
+        't/conf/extra.conf',
+        't/conf/httpd.conf',
+        't/htdocs/index.html',
+        't/logs',
     ],
-    configure_requires => {
-        'Module::Build' => '0.26', # for config_data
-    },
 )->create_build_script;

@@ -1,0 +1,2 @@
+print "Content-Type: text/plain\n\n";
+print "Hello world from mod_perlite!";

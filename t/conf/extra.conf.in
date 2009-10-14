@@ -1,0 +1,2 @@
+LoadModule perlite_module modules/mod_perlite.so
+AddType application/x-httpd-perlite .perlite
