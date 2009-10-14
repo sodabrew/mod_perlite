@@ -41,9 +41,9 @@ XS(XS_Perlite__env);
 XS(XS_Perlite__env)
 {
     dXSARGS;
+    (void)items;
     LOG(DEBUG, "Preparing %%ENV");
     {
-        dXSTARG;
         HV *RETVAL, *hv = newHV();
 
         // TODO: Accept an HV ref argument and replace its elements with those below.
@@ -72,7 +72,6 @@ XS(XS_Perlite__log)
     {
         int         level = (   int)SvIV(ST(0));
         char        * msg = (char *)SvPV_nolen(ST(1));
-        dXSTARG;
 
         // I'm not going to bother exporting these constants.
         // I suggest that authors use Sys::Syslog's LOG_foolevel.
@@ -160,7 +159,6 @@ XS(XS_PerliteIO__read)
     {
         SV           * RETVAL = &PL_sv_undef;
         apr_status_t rv;
-        dXSTARG;
 
         RETVAL = newSV(0);
 
@@ -193,8 +191,8 @@ XS(XS_Perlite__exit);
 XS(XS_Perlite__exit)
 {
     dXSARGS;
+    (void)items;
     {
-        dXSTARG;
         LOG(DEBUG, "Exiting");
         Perl_croak(aTHX_ "Exiting");
         // suppress_output = 1; wtf
@@ -210,7 +208,6 @@ static int perlite_handler(request_rec *r)
     PerlInterpreter *my_perl;
 
     int res = 0, retval = OK;
-    apr_status_t rv;
     char *run_file[] = { "", NULL };
     char path_before[HUGE_STRING_LEN], path_after[HUGE_STRING_LEN];
     const char *location;
@@ -324,6 +321,7 @@ static apr_pool_t *server_pool = NULL;
 static apr_status_t perlite_hook_term(void *data)
 {
     PERL_SYS_TERM();
+    return APR_SUCCESS;
 }
 
 static int perlite_hook_init(apr_pool_t *pconf, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *s)
