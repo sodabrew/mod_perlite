@@ -76,6 +76,9 @@ $class->new(
     build_requires  => {
         'File::Which'   => 0,
     },
+    requires => {
+        'perl'          => '5.6.0',
+    },
     add_to_cleanup  => [
         'mod_perlite.o',
         'mod_perlite.so',
