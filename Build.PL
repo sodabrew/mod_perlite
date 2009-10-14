@@ -80,4 +80,7 @@ $class->new(
         'mod_perlite.o',
         'mod_perlite.so',
     ],
+    configure_requires => {
+        'Module::Build' => '0.26', # for config_data
+    },
 )->create_build_script;
