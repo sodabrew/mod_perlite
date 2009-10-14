@@ -41,7 +41,7 @@ MANYAPXS
     my $CC = `$apxs -q CC`;
     my $INC = '-I' . `$apxs -q INCLUDEDIR`;
     my $LDFLAGS = ldopts;
-    my $CCFLAGS = '-fPIC -g -ggdb -DMP_SYS_DL_DLOPEN=1 ' . `pkg-config --cflags apr-1` . ccopts;
+    my $CCFLAGS = '-Wall -fPIC -g -ggdb -DMP_SYS_DL_DLOPEN=1 ' . `pkg-config --cflags apr-1` . ccopts;
     my $VERSION = '-DVERSION=\"' . $self->dist_version . '\"';
 
     my $build = "$CC -c mod_perlite.c $CCFLAGS $INC $VERSION";
